@@ -1,9 +1,14 @@
 package com.example.athanly.ui.home.screens.qibla
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.example.athanly.ui.home.screens.qibla.compact.QiblaUiCompact
@@ -18,6 +23,18 @@ fun QiblaUi(
     viewModel: QiblaViewModel = hiltViewModel()
 ) {
     val state by viewModel.qiblaState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val onEnableLocationClick: () -> Unit = {
+        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+    }
+
+    // Fires on every resume, including the initial one (redundant with the ViewModel's own
+    // init{} fetch on first entry, but harmless) — this is what actually revives the compass
+    // after the user taps the blocker's button, enables location in Settings, and comes back.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.retryLocationAccess()
+    }
 
     when {
         // 840dp+ — expanded (large tablets, landscape)
@@ -25,6 +42,7 @@ fun QiblaUi(
             QiblaUiExpanded(
                 state = state,
                 onUnitToggled = viewModel::onDistanceUnitToggled,
+                onEnableLocationClick = onEnableLocationClick,
                 modifier = modifier
             )
         }
@@ -33,6 +51,7 @@ fun QiblaUi(
             QiblaUiMedium(
                 state = state,
                 onUnitToggled = viewModel::onDistanceUnitToggled,
+                onEnableLocationClick = onEnableLocationClick,
                 modifier = modifier
             )
         }
@@ -41,6 +60,7 @@ fun QiblaUi(
             QiblaUiCompact(
                 state = state,
                 onUnitToggled = viewModel::onDistanceUnitToggled,
+                onEnableLocationClick = onEnableLocationClick,
                 modifier = modifier
             )
         }

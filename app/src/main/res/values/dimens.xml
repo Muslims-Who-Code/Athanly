@@ -132,6 +132,13 @@
     <dimen name="qibla_screen_horizontal_padding">20dp</dimen>
     <dimen name="qibla_screen_section_spacing">32dp</dimen>
 
+    <!-- Qibla location-off blocker -->
+    <dimen name="qibla_location_blocker_vertical_padding">40dp</dimen>
+    <dimen name="qibla_location_blocker_content_horizontal_padding">24dp</dimen>
+    <dimen name="qibla_location_blocker_message_button_gap">16dp</dimen>
+    <dimen name="qibla_location_blocker_button_vertical_padding">12dp</dimen>
+    <dimen name="qibla_location_blocker_button_horizontal_padding">24dp</dimen>
+
     <!-- Home city/date header -->
     <dimen name="home_city_header_vertical_padding">16dp</dimen>
     <dimen name="home_city_header_pin_icon_size">16dp</dimen>

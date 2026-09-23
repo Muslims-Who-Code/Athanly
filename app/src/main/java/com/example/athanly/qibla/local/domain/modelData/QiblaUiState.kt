@@ -14,6 +14,13 @@ data class QiblaUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
 
+    // Optimistic defaults — corrected almost immediately, since checkLocationAccessPreconditions()
+    // runs at the very start of QiblaViewModel's init{}. Checked ahead of `error` by the blocker
+    // UI so a permission-denied or offline state gets its own specific message instead of
+    // falling through to the generic error blocker.
+    val isOnline: Boolean = true,
+    val isLocationPermissionGranted: Boolean = true,
+
     val needleRotationDegrees: Float = 0f,
     val distanceValue: Double = 0.0,
     val distanceUnit: DistanceUnit = DistanceUnit.KILOMETERS,

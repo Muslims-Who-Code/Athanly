@@ -109,6 +109,13 @@
     <string name="qibla_distance_card_label">DISTANCE TO MAKKAH</string>
     <string name="qibla_distance_card_bearing">%1$d° %2$s</string>
 
+    <!-- Qibla location-off blocker -->
+    <string name="qibla_location_off_message">Location is off. Turn it on to find the Qibla direction.</string>
+    <string name="qibla_location_off_button">Enable Location</string>
+
+    <!-- Qibla offline blocker -->
+    <string name="qibla_offline_message">You\'re offline. Qibla direction requires an internet connection.</string>
+
     <!-- Prayer names -->
     <string name="prayer_fajr">Fajr</string>
     <string name="prayer_sunrise">Sunrise</string>

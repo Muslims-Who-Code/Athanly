@@ -205,12 +205,26 @@ class OnBoardingViewModel @Inject constructor(
 
     // Called with the OS permission dialog result on the Location onboarding step. Granted
     // kicks off the GPS fetch-and-save; denied leaves hasSavedCity false so the screen falls
-    // back to forcing a PresetCityPicker choice.
+    // back to forcing a PresetCityPicker choice. Also persists the result to DataStore — the
+    // single source of truth QiblaViewModel re-checks against on every Qibla screen visit,
+    // so a later revocation in system Settings doesn't leave this onboarding-time write stale.
     fun onLocationPermissionResult(isGranted: Boolean) {
         _locationState.update { current ->
             current.copy(
                 isPermissionGranted = isGranted
             )
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                preferencesDataStore.setIsLocationPermissionGranted(isGranted)
+            } catch (e: Exception) {
+                _locationState.update { current ->
+                    current.copy(
+                        error = e.message
+                    )
+                }
+            }
         }
 
         if (isGranted) {

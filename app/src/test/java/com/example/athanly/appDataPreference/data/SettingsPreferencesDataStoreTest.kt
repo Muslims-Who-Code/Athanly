@@ -163,4 +163,32 @@ class SettingsPreferencesDataStoreTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    // --- Location Permission Granted ---
+    // Single source of truth for "does the app have location permission" — written both at
+    // onboarding grant time (OnBoardingViewModel) and re-checked on every Qibla screen
+    // visit (QiblaViewModel), so it can't go stale if permission is later revoked in system
+    // Settings. Defaults to false, same shape as HasCompletedOnboarding above.
+
+    @Test
+    fun `observedIsLocationPermissionGranted defaults to false when nothing has been stored yet`() = runTest {
+        settingsPreferencesDataStore().observedIsLocationPermissionGranted().test {
+            assertEquals(false, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `setIsLocationPermissionGranted persists true and observedIsLocationPermissionGranted reflects it on the next emission`() = runTest {
+        val preferencesDataStore = settingsPreferencesDataStore()
+
+        preferencesDataStore.observedIsLocationPermissionGranted().test {
+            assertEquals(false, awaitItem()) // initial default, file is still empty
+
+            preferencesDataStore.setIsLocationPermissionGranted(true)
+
+            assertEquals(true, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

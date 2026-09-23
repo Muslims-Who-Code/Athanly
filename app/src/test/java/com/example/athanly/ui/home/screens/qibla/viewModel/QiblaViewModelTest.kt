@@ -1,6 +1,8 @@
 package com.example.athanly.ui.home.screens.qibla.viewModel
 
 import app.cash.turbine.test
+import com.example.athanly.appDataPreference.data.AppDataPreferencesDataStore
+import com.example.athanly.connectivity.domain.repository.ConnectivityProvider
 import com.example.athanly.qibla.local.data.QiblaPreferencesDataStore
 import com.example.athanly.qibla.local.domain.modelData.Coordinates
 import com.example.athanly.qibla.local.domain.modelData.enums.DistanceUnit
@@ -9,8 +11,11 @@ import com.example.athanly.qibla.local.domain.repository.UserLocationRepository
 import com.example.athanly.qibla.remote.domain.repository.QiblaApiRepository
 import com.example.athanly.qibla.userInfoCalculations.QiblaCalculator
 import com.example.athanly.ui.home.viewModel.QiblaViewModel
+import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +26,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -53,6 +60,7 @@ class QiblaViewModelTest {
             every {
                 observedLocation()
             } returns flowOf(coordinates)
+            every { hasLocationPermission() } returns true
         }
 
         val compassRepository = mockk<CompassRepository> {
@@ -76,11 +84,23 @@ class QiblaViewModelTest {
             } returns expectedBearing
         }
 
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns true
+        }
+
+        // `just Runs` stubs a suspend function that returns Unit — there's no return value
+        // to hand back, just an "acknowledge this call happened" stub.
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
         val viewModel = QiblaViewModel(
             userLocationRepository = userLocationRepository,
             compassRepository = compassRepository,
             preferencesDataStore = preferencesDataStore,
-            qiblaApiRepository = qiblaApiRepository
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
         )
 
         viewModel.qiblaState.test {
@@ -91,10 +111,12 @@ class QiblaViewModelTest {
             // inputs into the right state fields, not re-verifying the formula's math.
             val expectedDistanceKm = QiblaCalculator.distanceToKaaba(from = coordinates)
 
-            // Needle is now purely -heading — no bearing involved at all, since it's
+            // Needle is now purely heading — no bearing involved at all, since it's
             // decoupled from the Kaaba's direction (the coupling that used to exist here
-            // — bearing minus heading — was the bug this rearchitecture fixes).
-            assertEquals(-headingDegrees, state.needleRotationDegrees, 0.01f)
+            // — bearing minus heading — was the bug this rearchitecture fixes). Not negated:
+            // it must match the device's native compass heading directly, e.g. facing due
+            // east rotates the needle toward the fixed "E" label, not "W".
+            assertEquals(headingDegrees, state.needleRotationDegrees, 0.01f)
             assertEquals(expectedDistanceKm, state.distanceValue, 0.01)
             assertEquals(DistanceUnit.KILOMETERS, state.distanceUnit)
             assertEquals(expectedBearing, state.qiblaDegrees, 0.01)
@@ -113,6 +135,7 @@ class QiblaViewModelTest {
 
         val userLocationRepository = mockk<UserLocationRepository> {
             every { observedLocation() } returns flowOf(coordinates)
+            every { hasLocationPermission() } returns true
         }
         val compassRepository = mockk<CompassRepository> {
             every { observedHeadingDegrees() } returns headingFlow
@@ -125,12 +148,20 @@ class QiblaViewModelTest {
                 fetchQiblaBearing(latitude = coordinates.latitude, longitude = coordinates.longitude)
             } returns 136.14
         }
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns true
+        }
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
 
         val viewModel = QiblaViewModel(
             userLocationRepository = userLocationRepository,
             compassRepository = compassRepository,
             preferencesDataStore = preferencesDataStore,
-            qiblaApiRepository = qiblaApiRepository
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
         )
 
         viewModel.qiblaState.test {
@@ -144,7 +175,7 @@ class QiblaViewModelTest {
             // as the next distinct item.
             val stateAfterHeadingChange = awaitItem()
 
-            assertEquals(-45f, stateAfterHeadingChange.needleRotationDegrees, 0.01f)
+            assertEquals(45f, stateAfterHeadingChange.needleRotationDegrees, 0.01f)
             // The whole point of the fix: a heading change must not touch qiblaDegrees.
             assertEquals(qiblaDegreesBeforeHeadingChange, stateAfterHeadingChange.qiblaDegrees, 0.01)
         }
@@ -161,6 +192,7 @@ class QiblaViewModelTest {
 
         val userLocationRepository = mockk<UserLocationRepository> {
             every { observedLocation() } returns locationFlow
+            every { hasLocationPermission() } returns true
         }
         val compassRepository = mockk<CompassRepository> {
             every { observedHeadingDegrees() } returns flowOf(0f)
@@ -184,11 +216,20 @@ class QiblaViewModelTest {
             } returns expectedBearingB
         }
 
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns true
+        }
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
         val viewModel = QiblaViewModel(
             userLocationRepository = userLocationRepository,
             compassRepository = compassRepository,
             preferencesDataStore = preferencesDataStore,
-            qiblaApiRepository = qiblaApiRepository
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
         )
 
         viewModel.qiblaState.test {
@@ -212,6 +253,141 @@ class QiblaViewModelTest {
             // Kaaba bearing from the phone's current (drifted) location.
             val stateAfterRecalculation = awaitItem()
             assertEquals(expectedBearingB, stateAfterRecalculation.qiblaDegrees, 0.01)
+        }
+    }
+
+    @Test
+    fun `qiblaState reflects offline and permission-denied from ConnectivityProvider and UserLocationRepository at init`() = runTest {
+        val coordinates = Coordinates(latitude = 40.7128, longitude = -74.0060)
+
+        val userLocationRepository = mockk<UserLocationRepository> {
+            every { observedLocation() } returns flowOf(coordinates)
+            // false here is the thing this test is actually about — everything else
+            // below is just enough of a working setup that the rest of init{} doesn't
+            // also throw and add noise to the assertion.
+            every { hasLocationPermission() } returns false
+        }
+        val compassRepository = mockk<CompassRepository> {
+            every { observedHeadingDegrees() } returns flowOf(0f)
+        }
+        val preferencesDataStore = mockk<QiblaPreferencesDataStore> {
+            every { observedDistanceUnit() } returns flowOf(DistanceUnit.KILOMETERS)
+        }
+        val qiblaApiRepository = mockk<QiblaApiRepository> {
+            coEvery { fetchQiblaBearing(latitude = coordinates.latitude, longitude = coordinates.longitude) } returns 136.14
+        }
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns false
+        }
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
+        val viewModel = QiblaViewModel(
+            userLocationRepository = userLocationRepository,
+            compassRepository = compassRepository,
+            preferencesDataStore = preferencesDataStore,
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
+        )
+
+        viewModel.qiblaState.test {
+            val state = awaitItem()
+            assertFalse(state.isOnline)
+            assertFalse(state.isLocationPermissionGranted)
+        }
+    }
+
+    @Test
+    fun `retryLocationAccess rechecks connectivity and permission, updating qiblaState with the fresh result`() = runTest {
+        val coordinates = Coordinates(latitude = 40.7128, longitude = -74.0060)
+
+        val userLocationRepository = mockk<UserLocationRepository> {
+            every { observedLocation() } returns flowOf(coordinates)
+            every { hasLocationPermission() } returns true
+        }
+        val compassRepository = mockk<CompassRepository> {
+            every { observedHeadingDegrees() } returns flowOf(0f)
+        }
+        val preferencesDataStore = mockk<QiblaPreferencesDataStore> {
+            every { observedDistanceUnit() } returns flowOf(DistanceUnit.KILOMETERS)
+        }
+        val qiblaApiRepository = mockk<QiblaApiRepository> {
+            coEvery { fetchQiblaBearing(latitude = coordinates.latitude, longitude = coordinates.longitude) } returns 136.14
+        }
+        // Starts online — retryLocationAccess() is what's expected to notice it went offline.
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns true
+        }
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
+        val viewModel = QiblaViewModel(
+            userLocationRepository = userLocationRepository,
+            compassRepository = compassRepository,
+            preferencesDataStore = preferencesDataStore,
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
+        )
+
+        viewModel.qiblaState.test {
+            val initialState = awaitItem()
+            assertTrue(initialState.isOnline)
+
+            // Re-stubbing the same mock function overrides its previous answer — simulates
+            // the device having gone offline between the initial check and this retry, e.g.
+            // after the user backgrounds the app and returns (ON_RESUME → retryLocationAccess()).
+            every { connectivityProvider.isOnline() } returns false
+
+            viewModel.retryLocationAccess()
+
+            val stateAfterRetry = awaitItem()
+            assertFalse(stateAfterRetry.isOnline)
+        }
+    }
+
+    @Test
+    fun `checkLocationAccessPreconditions persists the permission result to AppDataPreferencesDataStore`() = runTest {
+        val coordinates = Coordinates(latitude = 40.7128, longitude = -74.0060)
+
+        val userLocationRepository = mockk<UserLocationRepository> {
+            every { observedLocation() } returns flowOf(coordinates)
+            every { hasLocationPermission() } returns true
+        }
+        val compassRepository = mockk<CompassRepository> {
+            every { observedHeadingDegrees() } returns flowOf(0f)
+        }
+        val preferencesDataStore = mockk<QiblaPreferencesDataStore> {
+            every { observedDistanceUnit() } returns flowOf(DistanceUnit.KILOMETERS)
+        }
+        val qiblaApiRepository = mockk<QiblaApiRepository> {
+            coEvery { fetchQiblaBearing(latitude = coordinates.latitude, longitude = coordinates.longitude) } returns 136.14
+        }
+        val connectivityProvider = mockk<ConnectivityProvider> {
+            every { isOnline() } returns true
+        }
+        val appDataPreferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
+        QiblaViewModel(
+            userLocationRepository = userLocationRepository,
+            compassRepository = compassRepository,
+            preferencesDataStore = preferencesDataStore,
+            qiblaApiRepository = qiblaApiRepository,
+            connectivityProvider = connectivityProvider,
+            appDataPreferencesDataStore = appDataPreferencesDataStore
+        )
+
+        // The write happens inside a viewModelScope.launch(Dispatchers.IO) block, off the
+        // UnconfinedTestDispatcher this test's other coroutines run on — coVerify's timeout
+        // parameter polls with real time for up to 1 second instead of asserting instantly,
+        // since there's no virtual-time control over the real IO dispatcher.
+        coVerify(timeout = 1_000) {
+            appDataPreferencesDataStore.setIsLocationPermissionGranted(true)
         }
     }
 }

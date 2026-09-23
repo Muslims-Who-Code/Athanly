@@ -96,11 +96,27 @@ class AppDataPreferencesDataStore(
         }
     }
 
+    // Single source of truth for "does the app have location permission" — written both at
+    // onboarding grant time and re-checked on every Qibla screen visit, so it can't go stale
+    // if permission is later revoked in system Settings. Defaults to false when missing.
+    fun observedIsLocationPermissionGranted(): Flow<Boolean> {
+        return dataStore.data.map { preferences ->
+            preferences[IS_LOCATION_PERMISSION_GRANTED_KEY] ?: false
+        }
+    }
+
+    suspend fun setIsLocationPermissionGranted(isLocationPermissionGranted: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[IS_LOCATION_PERMISSION_GRANTED_KEY] = isLocationPermissionGranted
+        }
+    }
+
     companion object {
         private val IS_24_HOUR_FORMAT_KEY = booleanPreferencesKey("is_24_hour_format")
         private val IS_HANAFI_MODE_KEY = booleanPreferencesKey("is_hanafi_mode")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val SELECTED_MUADHDHIN_ID_KEY = stringPreferencesKey("selected_muadhdhin_id")
         private val HAS_COMPLETED_ONBOARDING_KEY = booleanPreferencesKey("has_completed_onboarding")
+        private val IS_LOCATION_PERMISSION_GRANTED_KEY = booleanPreferencesKey("is_location_permission_granted")
     }
 }

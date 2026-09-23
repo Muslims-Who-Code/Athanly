@@ -197,4 +197,30 @@ class OnBoardingViewModelTest {
             assertEquals(true, updated.isPermissionGranted)
         }
     }
+
+    @Test
+    fun `onLocationPermissionResult writes the grant result through to the DataStore`() = runTest {
+        val preferencesDataStore = mockk<AppDataPreferencesDataStore> {
+            every { observedLanguage() } returns flowOf(Language.English)
+            every { observedSelectedMuadhdhin() } returns flowOf(muadhhinList.first())
+            every { observedIsHanafiMode() } returns flowOf(false)
+            coEvery { setIsLocationPermissionGranted(any()) } just Runs
+        }
+
+        // fetchAndSaveCurrentLocation() also fires when isGranted is true, so this needs
+        // locationProvider stubbed too — its result isn't what this test is checking, just
+        // enough of a working answer that it doesn't matter for the assertion below.
+        val locationProvider = mockk<LocationProvider> {
+            coEvery { getCurrentCity() } returns null
+        }
+
+        val viewModel = onBoardingViewModel(
+            preferencesDataStore = preferencesDataStore,
+            locationProvider = locationProvider
+        )
+
+        viewModel.onLocationPermissionResult(isGranted = true)
+
+        coVerify { preferencesDataStore.setIsLocationPermissionGranted(true) }
+    }
 }

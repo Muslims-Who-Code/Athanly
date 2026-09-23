@@ -48,6 +48,22 @@ class LocationProviderImpl @Inject constructor(
         )
     }
 
+    // Public so callers (e.g. QiblaViewModel, via UserLocationRepository) can check permission
+    // state on its own, separate from fetchCurrentLocation()'s "not granted == null fix" fallback.
+    override fun hasLocationPermission(): Boolean {
+        val fineGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return fineGranted || coarseGranted
+    }
+
     // Permission is checked here rather than trusted from the caller — calling the Play
     // Services API without it throws a SecurityException instead of failing gracefully, so
     // this returns null (same as "no fix") instead of ever reaching that call ungranted.
@@ -55,17 +71,7 @@ class LocationProviderImpl @Inject constructor(
     // rather than pulling in the kotlinx-coroutines-play-services dependency just for
     // Task.await() — this is the only Play Services call in the project.
     private suspend fun fetchCurrentLocation(): Location? {
-        val fineGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        
-        val coarseGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        
-        if (!fineGranted && !coarseGranted) 
+        if (!hasLocationPermission())
             return null
 
         return suspendCancellableCoroutine { continuation ->

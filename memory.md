@@ -86,6 +86,24 @@ every destination. A screen with its own custom entrance animation may need
 `enterTransition = { EnterTransition.None }` on its specific `composable<T>(...)` to
 avoid the two animations fighting.
 
+**Sync checks, no dispatcher** — don't wrap a plain synchronous check (e.g.
+`ConnectivityManager`-backed `isOnline()`, `ContextCompat.checkSelfPermission`-backed
+`hasLocationPermission()`) in `viewModelScope.launch(Dispatchers.IO) { ... }` alongside
+a real I/O call. Run the synchronous check + its `_state.update {}` directly (no
+coroutine needed), and launch a *separate* coroutine on `Dispatchers.IO` only around
+the genuine I/O part. Discovered building Qibla's offline/permission-denied blocker:
+putting a synchronous check on `Dispatchers.IO` races it against `init{}`'s other
+Main-dispatcher coroutines under `UnconfinedTestDispatcher`, making `StateFlow`
+emission order non-deterministic and Turbine `awaitItem()` sequencing flaky.
+
+**Drop generic fallback branches** — when a `when`-based error/blocker UI gets new,
+more specific branches (e.g. splitting "offline" out from a generic error), remove the
+old generic catch-all branch entirely rather than keeping it as a trailing fallback.
+Confirmed while building Qibla's blocker differentiation: the user removed a leftover
+`state.error != null -> GenericBlocker(...)` fallback and asked for it to be dropped
+from all three screen size classes for consistency — preferring an unhandled case show
+nothing over a blocker whose message might not match the actual problem.
+
 ---
 
 ## Project context (state, decisions, history)
@@ -126,6 +144,20 @@ channel.
 even though the Settings language toggle already exists (currently decorative). Do not
 touch this until the user explicitly says all UI text is finalized — this is meant to
 be the very last development step before the Play Store upload.
+
+**Qibla location differentiation** — done (2026-09-22). The Qibla blocker used to fire
+off any generic `QiblaUiState.error`, which conflated permission-denied, GPS-fix
+timeout, and unrelated API failures into one misleading message. Now split into two
+precise, independently-checked states: `isOnline` (live check via a new `connectivity/`
+module, never persisted) and `isLocationPermissionGranted` (persisted in
+`AppDataPreferencesDataStore`, rechecked at `QiblaViewModel` init/`retryLocationAccess()`
+and written at onboarding grant time), each with its own dedicated blocker UI.
+**Known gap, left deliberately unhandled:** online + permission-granted + GPS still
+acquiring a fix (weak signal/indoors) shows no UI at all now — the old generic fallback
+branch was removed rather than kept (see Drop generic fallback branches above). If this
+becomes a real complaint, it needs its own dedicated third state, not a revived generic
+blocker — check the `when` blocks in `QiblaUiCompact.kt`/`QiblaUiMedium.kt`/
+`QiblaUiExpanded.kt` (kept in sync across all three) for where it would go.
 
 ---
 

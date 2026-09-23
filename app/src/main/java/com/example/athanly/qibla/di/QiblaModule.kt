@@ -25,7 +25,6 @@ private val Context.qiblaPreferencesDataStore: DataStore<Preferences> by prefere
 @Module
 @InstallIn(SingletonComponent::class)
 object QiblaModule {
-
     @Provides
     @Singleton
     fun provideUserLocationRepository(locationProvider: LocationProvider): UserLocationRepository {

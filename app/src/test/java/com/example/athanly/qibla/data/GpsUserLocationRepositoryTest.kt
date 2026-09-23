@@ -5,9 +5,12 @@ import com.example.athanly.location.domain.repository.LocationProvider
 import com.example.athanly.qibla.local.data.GpsUserLocationRepository
 import com.example.athanly.qibla.local.domain.modelData.Coordinates
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GpsUserLocationRepositoryTest {
@@ -58,5 +61,30 @@ class GpsUserLocationRepositoryTest {
             // existing error path actually show something to the user.
             awaitError()
         }
+    }
+
+    @Test
+    fun `hasLocationPermission returns true when LocationProvider has permission`() {
+        val locationProvider = mockk<LocationProvider>()
+
+        // every {} (not coEvery) stubs a *non-suspend* function — hasLocationPermission()
+        // is a plain synchronous check, unlike getCurrentCoordinates() above.
+        every { locationProvider.hasLocationPermission() } returns true
+
+        val repository = GpsUserLocationRepository(locationProvider)
+
+        // This method just forwards the result — the test only needs to prove the
+        // delegation happens correctly, not re-test LocationProviderImpl's own permission logic.
+        assertTrue(repository.hasLocationPermission())
+    }
+
+    @Test
+    fun `hasLocationPermission returns false when LocationProvider has no permission`() {
+        val locationProvider = mockk<LocationProvider>()
+        every { locationProvider.hasLocationPermission() } returns false
+
+        val repository = GpsUserLocationRepository(locationProvider)
+
+        assertFalse(repository.hasLocationPermission())
     }
 }

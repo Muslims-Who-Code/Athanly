@@ -21,4 +21,8 @@ class GpsUserLocationRepository @Inject constructor(
 
         emit(coordinates)
     }
+
+    override fun hasLocationPermission(): Boolean {
+        return locationProvider.hasLocationPermission()
+    }
 }

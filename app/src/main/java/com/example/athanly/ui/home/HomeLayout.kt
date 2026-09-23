@@ -99,14 +99,21 @@ fun HomeLayout(
                 BottomNavBar(
                     currentRoute = currentRoute,
                     onTabSelected = { route ->
-                        // Standard bottom-nav pattern: avoid piling up duplicate destinations on the
-                        // back stack, and restore each tab's own state when switching back to it
-                        innerNavController.navigate(route) {
-                            popUpTo(innerNavController.graph.findStartDestination().id) {
-                                saveState = true
+                        // Re-tapping the already-active tab is a no-op — without this guard,
+                        // popUpTo+saveState+restoreState below still pops and immediately
+                        // restores the current destination, which is enough of a lifecycle
+                        // blip to re-fire resume-triggered effects (e.g. QiblaUi's location
+                        // retry) on every repeat tap.
+                        if (route != currentRoute) {
+                            // Standard bottom-nav pattern: avoid piling up duplicate destinations on the
+                            // back stack, and restore each tab's own state when switching back to it
+                            innerNavController.navigate(route) {
+                                popUpTo(innerNavController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 )

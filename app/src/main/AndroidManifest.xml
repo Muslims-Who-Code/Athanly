@@ -8,6 +8,11 @@
     <!-- Needed to call the Athan prayer-times API over Ktor -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Normal permission, granted automatically at install — lets ConnectivityProviderImpl
+         check NetworkCapabilities so the Qibla screen can tell an offline state apart from
+         a GPS-fix timeout, instead of treating both as the same generic error -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Coarse is enough for prayer-time calculation accuracy; fine is requested alongside it
          since FusedLocationProviderClient returns a better fix when both are granted. Requested
          at runtime on the onboarding Location screen -->
